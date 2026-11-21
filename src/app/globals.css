@@ -1,0 +1,8 @@
+@import "tailwindcss";
+
+.hero-mesh {
+  background-color: #ffffff;
+  background-image:
+    radial-gradient(at 88% 12%, rgba(56, 189, 248, 0.18) 0px, transparent 52%),
+    radial-gradient(at 10% 80%, rgba(37, 99, 235, 0.08) 0px, transparent 50%);
+}
