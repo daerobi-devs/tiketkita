@@ -25,7 +25,7 @@ export async function POST(req: Request) {
     const idKt = 'KT-' + Date.now().toString().slice(-4);
     await queryDb(
       'INSERT INTO event_konser (id_event, id_pembuat, nama_event, genre, tanggal_event, waktu_mulai, lokasi_venue, poster_url, poster_ratio) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)',
-      [idEv, 'USR-ADM-01', nama_event, genre || 'Indie', tanggal_event || '20 Des 2026', waktu_mulai || '19.00 WIB', lokasi_venue || 'Lapangan Kota', poster_url || '/posters/poster-soundwave.jpg', poster_ratio || 'landscape']
+      [idEv, 'USR-ADM-01', nama_event, genre || 'Pop', tanggal_event || '20 Des 2026', waktu_mulai || '19.00 WIB', lokasi_venue || 'Lapangan Kota', poster_url || '/posters/poster-suramaya-fest.jpg', poster_ratio || 'portrait']
     );
     await queryDb(
       'INSERT INTO kategori_tiket (id_kategori, id_event, nama_kategori, harga_tiket, kuota_total, kuota_tersedia) VALUES ($1,$2,$3,$4,$5,$6)',

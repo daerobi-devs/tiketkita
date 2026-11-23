@@ -28,6 +28,7 @@ interface EventItem {
   id_event: string;
   nama_event: string;
   genre: string;
+  poster_ratio?: 'landscape' | 'portrait';
   tanggal_event: string;
   waktu_mulai: string;
   lokasi_venue: string;
@@ -51,12 +52,13 @@ export default function BeliTiketPage() {
   const [ev, setEv] = useState<EventItem | null>(null);
   const [catId, setCatId] = useState('');
   const [qty, setQty] = useState(1);
-  const [nama, setNama] = useState('Bagas Adi Saputra');
-  const [wa, setWa] = useState('081288904412');
-  const [email, setEmail] = useState('bagas@email.com');
+  const [nama, setNama] = useState('');
+  const [wa, setWa] = useState('');
+  const [email, setEmail] = useState('');
   const [metode, setMetode] = useState<'QRIS Otomatis' | 'QRIS Manual'>('QRIS Otomatis');
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState('');
+  const [authChecked, setAuthChecked] = useState(false);
 
   // Headless Modal Pop-up (OPSI B)
   const [paymentModal, setPaymentModal] = useState<MpgPayment | null>(null);
@@ -66,12 +68,16 @@ export default function BeliTiketPage() {
 
   useEffect(() => {
     const saved = localStorage.getItem('tiketkita_user');
-    if (saved) {
-      const u = JSON.parse(saved);
-      if (u.nama_lengkap) setNama(u.nama_lengkap);
-      if (u.email) setEmail(u.email);
-      if (u.no_wa) setWa(u.no_wa);
+    if (!saved) {
+      router.replace(`/login?redirect=${encodeURIComponent(`/beli/${id}`)}`);
+      return;
     }
+    const u = JSON.parse(saved);
+    if (u.nama_lengkap) setNama(u.nama_lengkap);
+    if (u.email) setEmail(u.email);
+    if (u.no_wa) setWa(String(u.no_wa).replace(/[^0-9]/g, ''));
+    setAuthChecked(true);
+
     fetch('/api/events')
       .then((r) => r.json())
       .then((d) => {
@@ -82,7 +88,7 @@ export default function BeliTiketPage() {
           if (avail) setCatId(avail.id_kategori);
         }
       });
-  }, [id]);
+  }, [id, router]);
 
   // Poll status order setiap 3 detik saat modal QRIS terbuka
   useEffect(() => {
@@ -90,7 +96,7 @@ export default function BeliTiketPage() {
 
     const timer = setInterval(async () => {
       try {
-        const res = await fetch(`/api/orders/${paymentModal.order_id}/status`);
+        const res = await fetch(`/api/orders/${paymentModal.order_id}/status`, { cache: 'no-store' });
         const data = await res.json();
         if (data.status_bayar === 'lunas') {
           setIsPaid(true);
@@ -160,7 +166,7 @@ export default function BeliTiketPage() {
     setTimeout(() => setCopiedAmount(false), 2000);
   }
 
-  if (!ev) {
+  if (!authChecked || !ev) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-50 text-sm font-semibold text-slate-500">
         Memuat detail konser...
@@ -171,16 +177,20 @@ export default function BeliTiketPage() {
   return (
     <div className="min-h-screen bg-slate-50 px-4 py-8 text-slate-900">
       <div className="mx-auto max-w-5xl">
-        <Link href="/" className="mb-6 inline-flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-blue-600">
-          <ArrowLeft className="h-4 w-4" /> Kembali ke Daftar Konser
+        <Link href="/tiket-saya" className="mb-6 inline-flex items-center gap-2 text-xs font-bold text-slate-600 hover:text-blue-600">
+          <ArrowLeft className="h-4 w-4" /> Kembali ke Dashboard Saya
         </Link>
 
         <div className="grid gap-8 lg:grid-cols-12">
           {/* Left: Event & Category Selection */}
           <div className="space-y-6 lg:col-span-7">
             <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
-              <div className="relative h-52 bg-slate-900">
-                <img src={ev.poster_url} alt={ev.nama_event} className="h-full w-full object-cover" />
+              <div
+                className={`relative bg-slate-900 ${
+                  ev.poster_ratio === 'portrait' ? 'aspect-[3/4] max-h-[460px] w-full' : 'h-52'
+                }`}
+              >
+                <img src={ev.poster_url} alt={ev.nama_event} className="h-full w-full object-cover object-top" />
                 <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-transparent to-transparent" />
                 <div className="absolute bottom-4 left-5 right-5 text-white">
                   <span className="rounded-full bg-blue-600 px-2.5 py-0.5 text-[10px] font-bold">{ev.genre}</span>
@@ -255,11 +265,14 @@ export default function BeliTiketPage() {
               </div>
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
-                  <label className="mb-1 block text-xs font-bold text-slate-700">No. WhatsApp</label>
+                  <label className="mb-1 block text-xs font-bold text-slate-700">Nomor Telepon (Opsional)</label>
                   <input
-                    required
+                    type="tel"
+                    inputMode="numeric"
+                    maxLength={15}
                     value={wa}
-                    onChange={(e) => setWa(e.target.value)}
+                    onChange={(e) => setWa(e.target.value.replace(/[^0-9]/g, ''))}
+                    placeholder="081234567890"
                     className="w-full rounded-xl border border-slate-200 px-3.5 py-2 text-xs focus:border-blue-500 focus:outline-none"
                   />
                 </div>
@@ -303,19 +316,10 @@ export default function BeliTiketPage() {
                 </div>
               </div>
 
-              {/* QRIS Preview */}
-              <div className="rounded-xl border border-blue-100 bg-blue-50/70 p-4 text-center">
-                <div className="mb-2 flex items-center justify-center gap-1.5 text-xs font-bold text-blue-700">
-                  <QrCode className="h-4 w-4" /> Pembayaran QRIS Dinamis
-                </div>
-                <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-xl border border-blue-200 bg-white p-2">
-                  <QrCode className="h-12 w-12 text-slate-900" />
-                </div>
-                <div className="mt-2 text-[11px] text-slate-500">
-                  {metode === 'QRIS Otomatis'
-                    ? 'QRIS dinamis + kode unik muncul di layar pop-up dan terverifikasi otomatis.'
-                    : 'Pesanan masuk ke antrean verifikasi manual Admin EO.'}
-                </div>
+              <div className="rounded-xl border border-blue-100 bg-blue-50/60 px-3.5 py-2.5 text-[11px] font-medium text-slate-600">
+                {metode === 'QRIS Otomatis'
+                  ? 'Kode QRIS dinamis beserta nominal persis akan muncul setelah Anda menekan tombol Konfirmasi & Bayar Sekarang.'
+                  : 'Pesanan Anda akan diteruskan ke Admin EO untuk verifikasi pembayaran manual.'}
               </div>
 
               <div className="space-y-1.5 border-t border-slate-100 pt-3 text-xs">

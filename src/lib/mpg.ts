@@ -61,6 +61,28 @@ export async function createMpgInvoice(input: CreateMpgInvoiceInput): Promise<Mp
   };
 }
 
+export async function getMpgInvoiceStatus(orderId: string): Promise<{ status: string; paid_at: string | null } | null> {
+  const gatewayUrl = (process.env.MPG_GATEWAY_URL || 'https://paymentgateway.daeroom.my.id').replace(/\/$/, '');
+  const apiKey = process.env.MPG_API_KEY;
+  if (!apiKey) return null;
+
+  try {
+    const res = await fetch(`${gatewayUrl}/api/v1/invoice/${encodeURIComponent(orderId)}`, {
+      headers: { Authorization: `Bearer ${apiKey}` },
+      cache: 'no-store',
+    });
+    if (!res.ok) return null;
+    const json = await res.json().catch(() => null);
+    if (!json?.success || !json?.data) return null;
+    return {
+      status: String(json.data.status || '').toUpperCase(),
+      paid_at: json.data.paid_at || null,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export function verifyMpgSignature(rawBody: string, signatureHeader: string | null): boolean {
   const secret = process.env.MPG_WEBHOOK_SECRET;
   if (!secret || !signatureHeader) return false;

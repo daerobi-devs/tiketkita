@@ -59,13 +59,8 @@ export default function HomePage() {
       {/* Navbar */}
       <header className="sticky top-0 z-50 border-b border-slate-200/80 bg-white/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3 sm:px-5 sm:py-3.5">
-          <Link href="/" className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-blue-600 text-white shadow-sm shadow-blue-500/25">
-              <Ticket className="h-5 w-5" />
-            </div>
-            <span className="text-lg font-extrabold tracking-tight text-slate-900">
-              Tiket<span className="text-blue-600">Kita</span>
-            </span>
+          <Link href="/" className="flex items-center">
+            <img src="/brand/logo-horizontal.png" alt="TiketKita" className="h-9 w-auto object-contain sm:h-10" />
           </Link>
 
           <nav className="hidden items-center gap-7 text-sm font-semibold text-slate-600 md:flex">
@@ -212,7 +207,7 @@ export default function HomePage() {
           <div className="lg:col-span-7">
             <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-blue-200/80 bg-blue-50/90 px-3 py-1 text-[11px] font-bold text-blue-700 sm:mb-5 sm:px-3.5 sm:text-xs">
               <ShieldCheck className="h-3.5 w-3.5 shrink-0 text-blue-600" />
-              Platform Resmi E-Ticketing Konser &amp; Festival Lokal
+              Tiket Konser &amp; Musik Live Terpercaya
             </div>
 
             <h1 className="text-3xl font-extrabold leading-[1.14] tracking-tight text-slate-900 sm:text-5xl">
@@ -220,7 +215,7 @@ export default function HomePage() {
             </h1>
 
             <p className="mt-4 max-w-xl text-sm leading-relaxed text-slate-600 sm:text-base">
-              Pantau sisa kuota kategori secara real-time langsung dari PostgreSQL. Bayar praktis lewat QRIS dan langsung dapatkan E-Ticket QR Code resmi untuk akses cepat di gerbang venue.
+              Pilih konser yang ingin kamu tonton, lihat sisa tiket secara langsung, dan bayar praktis lewat QRIS. E-Ticket langsung masuk ke akunmu—tinggal tunjukkan di pintu masuk tanpa ribet.
             </p>
 
             <div className="mt-6 flex max-w-xl items-center gap-2 rounded-2xl border border-slate-200 bg-white p-1.5 shadow-lg shadow-slate-900/[0.04] focus-within:border-blue-400 focus-within:ring-4 focus-within:ring-blue-500/10 sm:mt-7">
@@ -245,41 +240,41 @@ export default function HomePage() {
             <div className="mt-7 grid max-w-lg grid-cols-3 gap-3 border-t border-slate-200/70 pt-5 sm:mt-8 sm:gap-6 sm:pt-6">
               <div>
                 <div className="font-mono text-lg font-bold text-slate-900 sm:text-xl">100%</div>
-                <div className="mt-0.5 text-[11px] font-medium text-slate-500 sm:text-xs">Kuota Real-Time</div>
+                <div className="mt-0.5 text-[11px] font-medium text-slate-500 sm:text-xs">Tiket Resmi</div>
               </div>
               <div>
                 <div className="font-mono text-lg font-bold text-slate-900 sm:text-xl">QRIS</div>
-                <div className="mt-0.5 text-[11px] font-medium text-slate-500 sm:text-xs">Pembayaran Instan</div>
+                <div className="mt-0.5 text-[11px] font-medium text-slate-500 sm:text-xs">Bayar Praktis</div>
               </div>
               <div>
                 <div className="font-mono text-lg font-bold text-slate-900 sm:text-xl">&lt; 3 dtk</div>
-                <div className="mt-0.5 text-[11px] font-medium text-slate-500 sm:text-xs">Validasi Gate</div>
+                <div className="mt-0.5 text-[11px] font-medium text-slate-500 sm:text-xs">Scan Masuk Cepat</div>
               </div>
             </div>
           </div>
 
           <div className="lg:col-span-5">
-            <div className="group overflow-hidden rounded-3xl border border-slate-200/90 bg-white shadow-2xl shadow-blue-900/10 transition-all duration-300 hover:-translate-y-1">
-              <div className="relative h-64 overflow-hidden bg-slate-900">
+            <div className="group mx-auto max-w-sm overflow-hidden rounded-3xl border border-slate-200/90 bg-white shadow-2xl shadow-blue-900/10 transition-all duration-300 hover:-translate-y-1">
+              <div className="relative aspect-[3/4] max-h-[420px] w-full overflow-hidden bg-slate-900">
                 <img
-                  src={featured?.poster_url || '/posters/poster-soundwave.jpg'}
-                  alt={featured?.nama_event || 'Soundwave Indie Fest 2026'}
-                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  src={featured?.poster_url || '/posters/poster-suramaya-fest.jpg'}
+                  alt={featured?.nama_event || 'Suramaya Music Festival'}
+                  className="h-full w-full object-cover object-top transition-transform duration-500 group-hover:scale-105"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/30 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/25 to-transparent" />
                 <div className="absolute left-4 top-4 rounded-full bg-white/95 px-3 py-1 text-[11px] font-bold text-blue-700 shadow-sm">
                   Event Unggulan
                 </div>
                 <div className="absolute bottom-4 left-4 right-4 text-white">
                   <div className="text-xs font-semibold text-sky-300">
-                    {featured ? `${featured.tanggal_event} • ${featured.waktu_mulai}` : '14 Nov 2026 • 18.00 WIB'}
+                    {featured ? `${featured.tanggal_event} • ${featured.waktu_mulai}` : '10 Mar 2026 • 16.00 WIB'}
                   </div>
                   <h2 className="mt-1 text-xl font-extrabold tracking-tight">
-                    {featured?.nama_event || 'Soundwave Indie Fest 2026'}
+                    {featured?.nama_event || 'Suramaya Music Festival'}
                   </h2>
                   <div className="mt-1 flex items-center gap-1.5 text-xs text-slate-200">
                     <MapPin className="h-3.5 w-3.5 text-sky-400" />
-                    {featured?.lokasi_venue || 'Lapangan Terbuka Kota'}
+                    {featured?.lokasi_venue || 'GOR Graha Rimberio'}
                   </div>
                 </div>
               </div>
@@ -312,15 +307,15 @@ export default function HomePage() {
             <p className="mt-1.5 text-sm text-slate-500">Pilih pertunjukan musik lokal dan pantau ketersediaan kuota secara langsung.</p>
           </div>
 
-          <div className="flex flex-wrap gap-2">
-            {['Semua', 'Indie', 'Akustik', 'Jazz'].map((g) => (
+          <div className="flex flex-wrap items-center gap-2">
+            {['Semua', ...Array.from(new Set(events.map((e) => e.genre).filter(Boolean)))].map((g) => (
               <button
                 key={g}
                 onClick={() => setGenre(g)}
                 className={
                   genre === g
-                    ? 'rounded-full bg-blue-600 px-4 py-1.5 text-xs font-bold text-white shadow-sm transition-all'
-                    : 'rounded-full border border-slate-200 bg-white px-4 py-1.5 text-xs font-bold text-slate-600 transition-all hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700'
+                    ? 'rounded-full bg-blue-600 px-3.5 py-1.5 text-xs font-bold text-white shadow-sm transition-all'
+                    : 'rounded-full border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-bold text-slate-600 transition-all hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700'
                 }
               >
                 {g}

@@ -19,6 +19,11 @@ import {
   Home,
   Menu,
   X,
+  QrCode,
+  Copy,
+  Check,
+  CheckCircle2,
+  Trash2,
 } from 'lucide-react';
 
 interface UserData {
@@ -40,6 +45,7 @@ interface OrderItem {
   total_bayar: number;
   metode_bayar: string;
   status_bayar: string;
+  qris_string?: string | null;
 }
 
 interface TicketDetail {
@@ -79,6 +85,99 @@ export default function TiketSayaPage() {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [qrMap, setQrMap] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
+
+  // Modal Bayar QRIS Ulang untuk order pending
+  const [payModalOrder, setPayModalOrder] = useState<OrderItem | null>(null);
+  const [payQrImg, setPayQrImg] = useState('');
+  const [payPaid, setPayPaid] = useState(false);
+  const [copiedNominal, setCopiedNominal] = useState(false);
+
+  async function openPayModal(order: OrderItem) {
+    if (!order.qris_string) return;
+    const img = await QRCode.toDataURL(order.qris_string, {
+      width: 280,
+      margin: 2,
+      color: { dark: '#0f172a', light: '#ffffff' },
+    });
+    setPayQrImg(img);
+    setPayPaid(false);
+    setPayModalOrder(order);
+  }
+
+  function printSingleTicket(order: OrderItem, ticket: TicketDetail) {
+    const qrSrc = qrMap[ticket.kode_qr] || '';
+    const win = window.open('', '_blank', 'width=520,height=720');
+    if (!win) return;
+    win.document.write(`<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <title>E-Ticket ${ticket.kode_qr} - TiketKita</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, -apple-system, sans-serif; background: #f8fafc; padding: 28px; display: flex; justify-content: center; }
+    .ticket { width: 100%; max-width: 420px; background: #ffffff; border: 1.5px solid #cbd5e1; border-radius: 20px; overflow: hidden; }
+    .head { background: #2563eb; color: #ffffff; padding: 20px 24px; }
+    .brand { font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; opacity: 0.9; }
+    .ev { font-size: 20px; font-weight: 800; margin-top: 6px; }
+    .body { padding: 22px 24px; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 18px; }
+    .lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; color: #64748b; }
+    .val { font-size: 13px; font-weight: 700; color: #0f172a; margin-top: 2px; }
+    .divider { border-top: 2px dashed #e2e8f0; margin: 18px 0; }
+    .qr-box { text-align: center; }
+    .qr-box img { width: 200px; height: 200px; border: 1px solid #e2e8f0; border-radius: 14px; padding: 8px; }
+    .code { font-family: monospace; font-size: 15px; font-weight: 800; color: #0f172a; margin-top: 10px; letter-spacing: 0.06em; }
+    .note { font-size: 11px; color: #64748b; margin-top: 6px; }
+    @media print { body { background: #ffffff; padding: 0; } .ticket { border: 1px solid #94a3b8; } }
+  </style>
+</head>
+<body>
+  <div class="ticket">
+    <div class="head">
+      <div class="brand">TiketKita &bull; Official E-Ticket</div>
+      <div class="ev">${order.nama_event}</div>
+    </div>
+    <div class="body">
+      <div class="grid">
+        <div><div class="lbl">Pemegang Tiket</div><div class="val">${order.nama_pemesan}</div></div>
+        <div><div class="lbl">Kategori</div><div class="val">${order.nama_kategori}</div></div>
+        <div><div class="lbl">Tanggal</div><div class="val">${order.tanggal_event}</div></div>
+        <div><div class="lbl">Lokasi Venue</div><div class="val">${order.lokasi_venue}</div></div>
+        <div><div class="lbl">ID Transaksi</div><div class="val">${order.id_transaksi}</div></div>
+        <div><div class="lbl">Status</div><div class="val">LUNAS</div></div>
+      </div>
+      <div class="divider"></div>
+      <div class="qr-box">
+        ${qrSrc ? `<img src="${qrSrc}" alt="${ticket.kode_qr}" />` : ''}
+        <div class="code">${ticket.kode_qr}</div>
+        <div class="note">Tunjukkan QR Code ini kepada Petugas Gate saat memasuki venue.</div>
+      </div>
+    </div>
+  </div>
+  <script>window.onload = function() { setTimeout(function() { window.print(); }, 250); };</script>
+</body>
+</html>`);
+    win.document.close();
+  }
+
+  useEffect(() => {
+    if (!payModalOrder || payPaid) return;
+    const timer = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/orders/${payModalOrder.id_transaksi}/status`, { cache: 'no-store' });
+        const data = await res.json();
+        if (data.status_bayar === 'lunas') {
+          setPayPaid(true);
+          clearInterval(timer);
+          loadAll(user);
+        }
+      } catch {
+        // ignore transient polling error
+      }
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [payModalOrder, payPaid, user]);
 
   async function loadAll(currentUser: UserData | null) {
     setLoading(true);
@@ -120,6 +219,12 @@ export default function TiketSayaPage() {
     router.push('/login');
   }
 
+  async function deleteRejectedOrder(id: string) {
+    if (!confirm('Hapus riwayat transaksi ditolak ini dari daftar Anda?')) return;
+    await fetch(`/api/orders/${id}`, { method: 'DELETE' });
+    loadAll(user);
+  }
+
   const lunasCount = orders.filter((o) => o.status_bayar === 'lunas').length;
   const pendingCount = orders.filter((o) => o.status_bayar === 'pending').length;
   const activeTicketCount = tickets.filter((t) =>
@@ -140,10 +245,8 @@ export default function TiketSayaPage() {
             <Menu className="h-5 w-5" />
           </button>
           <div>
-            <div className="text-sm font-extrabold tracking-tight text-slate-900">
-              Tiket<span className="text-blue-600">Kita</span>
-            </div>
-            <div className="text-[10px] font-medium text-slate-400">Dashboard Pembeli</div>
+            <img src="/brand/logo-horizontal.png" alt="TiketKita" className="h-7 w-auto object-contain" />
+            <div className="text-[10px] font-semibold text-slate-400">Dashboard Pembeli</div>
           </div>
         </div>
         <button
@@ -170,16 +273,9 @@ export default function TiketSayaPage() {
       >
         <div>
           <div className="flex items-center justify-between border-b border-slate-100 px-2 pb-5">
-            <Link href="/" className="flex items-center gap-2.5">
-              <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-sky-500 to-blue-600 text-white shadow-sm">
-                <Ticket className="h-5 w-5" />
-              </div>
-              <div>
-                <div className="text-sm font-extrabold tracking-tight text-slate-900">
-                  Tiket<span className="text-blue-600">Kita</span>
-                </div>
-                <div className="text-[11px] font-medium text-slate-400">Dashboard Pembeli</div>
-              </div>
+            <Link href="/" className="block">
+              <img src="/brand/logo-horizontal.png" alt="TiketKita" className="h-8 w-auto object-contain" />
+              <div className="mt-1 text-[11px] font-semibold text-slate-400">Dashboard Pembeli</div>
             </Link>
             <button
               type="button"
@@ -306,12 +402,6 @@ export default function TiketSayaPage() {
                 >
                   <RefreshCw className="h-3.5 w-3.5" /> Muat Ulang Status
                 </button>
-                <button
-                  onClick={() => window.print()}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-4 py-2 text-xs font-bold text-white hover:bg-blue-700"
-                >
-                  <Printer className="h-3.5 w-3.5" /> Cetak E-Ticket
-                </button>
               </>
             )}
           </div>
@@ -434,10 +524,10 @@ export default function TiketSayaPage() {
                                     )}
                                     <button
                                       type="button"
-                                      onClick={() => window.print()}
+                                      onClick={() => printSingleTicket(o, t)}
                                       className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-2.5 py-1 text-[11px] font-bold text-white hover:bg-blue-700"
                                     >
-                                      <Printer className="h-3 w-3" /> Cetak
+                                      <Printer className="h-3 w-3" /> Cetak E-Ticket
                                     </button>
                                   </div>
                                 </div>
@@ -446,12 +536,37 @@ export default function TiketSayaPage() {
                           ))}
                         </div>
                       ) : o.status_bayar === 'ditolak' ? (
-                        <div className="mt-4 rounded-xl bg-rose-50 px-3.5 py-2.5 text-xs font-medium text-rose-700">
-                          Pembayaran transaksi ini ditolak oleh Admin dan kuota tiket telah dikembalikan.
+                        <div className="mt-4 flex flex-wrap items-center justify-between gap-2.5 rounded-xl bg-rose-50 px-3.5 py-2.5 text-xs font-medium text-rose-700">
+                          <div>
+                            <div>Pembayaran ditolak dan kuota tiket telah dikembalikan.</div>
+                            <div className="mt-0.5 text-[11px] text-rose-500">
+                              Riwayat ini akan terhapus otomatis dalam 24 jam.
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => deleteRejectedOrder(o.id_transaksi)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 text-[11px] font-bold text-rose-600 hover:bg-rose-100 print:hidden"
+                          >
+                            <Trash2 className="h-3 w-3" /> Hapus
+                          </button>
                         </div>
                       ) : (
-                        <div className="mt-4 rounded-xl bg-amber-50/70 px-3.5 py-2.5 text-xs font-medium text-amber-700">
-                          QR Code akan muncul otomatis setelah Admin menyetujui pembayaran QRIS Anda.
+                        <div className="mt-4 space-y-2.5 rounded-xl bg-amber-50/70 px-3.5 py-3 text-xs font-medium text-amber-800">
+                          <div>
+                            {o.qris_string
+                              ? 'Pesanan belum dibayar. Klik tombol di bawah untuk memunculkan kembali kode QRIS pembayaran Anda.'
+                              : 'QR Code E-Ticket akan muncul otomatis setelah pembayaran QRIS Anda terkonfirmasi.'}
+                          </div>
+                          {o.qris_string && (
+                            <button
+                              type="button"
+                              onClick={() => openPayModal(o)}
+                              className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-blue-700 print:hidden"
+                            >
+                              <QrCode className="h-3.5 w-3.5" /> Tampilkan QRIS / Bayar Sekarang
+                            </button>
+                          )}
                         </div>
                       )}
                     </div>
@@ -481,7 +596,7 @@ export default function TiketSayaPage() {
                     }`}
                   >
                     <img
-                      src={ev.poster_url || '/posters/poster-soundwave.jpg'}
+                      src={ev.poster_url || '/posters/poster-suramaya-fest.jpg'}
                       alt={ev.nama_event}
                       className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
                     />
@@ -593,6 +708,86 @@ export default function TiketSayaPage() {
           </div>
         )}
       </main>
+
+      {/* MODAL TAMPILKAN ULANG QRIS PEMBAYARAN UNTUK ORDER PENDING */}
+      {payModalOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/55 p-4 backdrop-blur-xs print:hidden">
+          <div className="w-full max-w-md overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+              <div>
+                <div className="text-sm font-extrabold text-slate-900">Lanjutkan Pembayaran QRIS</div>
+                <div className="font-mono text-[11px] text-slate-400">
+                  {payModalOrder.id_transaksi} &bull; {payModalOrder.nama_event}
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPayModalOrder(null)}
+                className="rounded-lg border border-slate-200 p-1.5 text-slate-500 hover:bg-slate-50"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {payPaid ? (
+              <div className="p-6 text-center">
+                <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+                  <CheckCircle2 className="h-8 w-8" />
+                </div>
+                <h3 className="mt-3 text-lg font-extrabold text-slate-900">Pembayaran Diterima!</h3>
+                <p className="mt-1 text-xs text-slate-500">
+                  E-Ticket QR Code Anda sudah aktif dan tampil di halaman Status Pemesanan.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setPayModalOrder(null)}
+                  className="mt-5 w-full rounded-xl bg-blue-600 py-2.5 text-xs font-bold text-white hover:bg-blue-700"
+                >
+                  Lihat E-Ticket Sekarang
+                </button>
+              </div>
+            ) : (
+              <div className="p-6 text-center">
+                <div className="rounded-xl border border-blue-100 bg-blue-50/60 px-4 py-3">
+                  <div className="text-[11px] font-semibold text-slate-500">Nominal Persis Pembayaran</div>
+                  <div className="mt-1 flex items-center justify-center gap-2">
+                    <span className="font-mono text-2xl font-extrabold text-blue-700">
+                      Rp {Number(payModalOrder.total_bayar).toLocaleString('id-ID')}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        navigator.clipboard.writeText(String(payModalOrder.total_bayar));
+                        setCopiedNominal(true);
+                        setTimeout(() => setCopiedNominal(false), 2000);
+                      }}
+                      className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-white px-2 py-1 text-[11px] font-bold text-blue-700 hover:bg-blue-50"
+                    >
+                      {copiedNominal ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                      {copiedNominal ? 'Disalin' : 'Salin'}
+                    </button>
+                  </div>
+                </div>
+
+                {payQrImg && (
+                  <div className="mx-auto mt-4 inline-block rounded-2xl border border-slate-200 bg-white p-3 shadow-xs">
+                    <img src={payQrImg} alt="QRIS Dinamis" className="h-56 w-56" />
+                  </div>
+                )}
+
+                <p className="mt-3 text-xs text-slate-500">
+                  Scan QRIS menggunakan Mobile Banking atau E-Wallet Anda. Status otomatis berubah begitu pembayaran masuk.
+                </p>
+
+                <div className="mt-4 flex items-center justify-center gap-2 rounded-xl bg-slate-50 py-2 text-[11px] font-semibold text-slate-600">
+                  <RefreshCw className="h-3.5 w-3.5 animate-spin text-blue-600" />
+                  Menunggu konfirmasi otomatis...
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

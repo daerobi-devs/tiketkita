@@ -2,9 +2,17 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 import { queryDb } from '@/lib/daeroom';
 import { createMpgInvoice, MpgInvoiceData } from '@/lib/mpg';
+import { sendTelegramAlert } from '@/lib/maildaeroom';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(req: Request) {
   try {
+    // Auto-cleanup: hapus transaksi berstatus ditolak yang berumur lebih dari 24 jam
+    await queryDb(
+      "DELETE FROM transaksi_pemesanan WHERE status_bayar = 'ditolak' AND waktu_pesan < NOW() - INTERVAL '24 hours'"
+    ).catch(() => {});
+
     const { searchParams } = new URL(req.url);
     const email = searchParams.get('email');
 
@@ -27,7 +35,10 @@ export async function GET(req: Request) {
         `);
 
     const tickets = await queryDb('SELECT * FROM tiket_detail ORDER BY id_tiket DESC');
-    return NextResponse.json({ orders: r.rows, tickets: tickets.rows });
+    return NextResponse.json(
+      { orders: r.rows, tickets: tickets.rows },
+      { headers: { 'Cache-Control': 'no-store' } }
+    );
   } catch (err) {
     return NextResponse.json({ error: (err as Error).message }, { status: 500 });
   }
@@ -109,8 +120,8 @@ export async function POST(req: Request) {
     const status = isInstantOts ? 'lunas' : 'pending';
 
     await queryDb(
-      `INSERT INTO transaksi_pemesanan (id_transaksi, id_pelanggan, id_kategori, nama_pemesan, no_wa, email_pemesan, jumlah_tiket, total_bayar, metode_bayar, status_bayar)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      `INSERT INTO transaksi_pemesanan (id_transaksi, id_pelanggan, id_kategori, nama_pemesan, no_wa, email_pemesan, jumlah_tiket, total_bayar, metode_bayar, status_bayar, qris_string)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
       [
         idTrx,
         'USR-USR-01',
@@ -122,6 +133,7 @@ export async function POST(req: Request) {
         finalAmount,
         metode_bayar || 'QRIS Manual',
         status,
+        payment?.qr_string || null,
       ]
     );
 
@@ -135,6 +147,40 @@ export async function POST(req: Request) {
         );
         createdTickets.push(code);
       }
+    } else {
+      // Kirim notifikasi ke Telegram Admin dengan tombol 1-klik langsung (signed HMAC URL — tanpa tergantung webhook!)
+      const publicBase = (process.env.NEXT_PUBLIC_APP_URL || new URL(req.url).origin).replace(/\/$/, '');
+      const actionSecret =
+        process.env.DAEROOM_MAIL_WEBHOOK_SECRET || process.env.MPG_WEBHOOK_SECRET || 'tiketkita-secret';
+      const approveToken = crypto
+        .createHmac('sha256', actionSecret)
+        .update(`${idTrx}:approve`)
+        .digest('hex')
+        .slice(0, 32);
+      const rejectToken = crypto
+        .createHmac('sha256', actionSecret)
+        .update(`${idTrx}:reject`)
+        .digest('hex')
+        .slice(0, 32);
+
+      const approveUrl = `${publicBase}/api/orders/${idTrx}/telegram-action?action=approve&token=${approveToken}`;
+      const rejectUrl = `${publicBase}/api/orders/${idTrx}/telegram-action?action=reject&token=${rejectToken}`;
+
+      sendTelegramAlert({
+        message:
+          `Pesanan Tiket Baru!\n` +
+          `Order ID: ${idTrx}\n` +
+          `Event: ${cat.nama_event} (${cat.nama_kategori})\n` +
+          `Pemesan: ${nama_pemesan} (${no_wa || '-'})\n` +
+          `Jumlah: ${qty} Tiket\n` +
+          `Total: Rp ${finalAmount.toLocaleString('id-ID')}\n` +
+          `Metode: ${metode_bayar || 'QRIS Manual'}\n` +
+          `Status: Menunggu Pembayaran / Konfirmasi`,
+        buttons: [
+          { text: 'Setujui Pembayaran', url: approveUrl },
+          { text: 'Tolak Pesanan', url: rejectUrl },
+        ],
+      }).catch(() => {});
     }
 
     return NextResponse.json({

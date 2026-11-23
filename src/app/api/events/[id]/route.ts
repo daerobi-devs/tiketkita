@@ -76,6 +76,22 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
+    await queryDb(
+      `DELETE FROM tiket_detail
+       WHERE id_transaksi IN (
+         SELECT t.id_transaksi
+         FROM transaksi_pemesanan t
+         JOIN kategori_tiket k ON t.id_kategori = k.id_kategori
+         WHERE k.id_event = $1
+       )`,
+      [id]
+    );
+    await queryDb(
+      `DELETE FROM transaksi_pemesanan
+       WHERE id_kategori IN (SELECT id_kategori FROM kategori_tiket WHERE id_event = $1)`,
+      [id]
+    );
+    await queryDb('DELETE FROM kategori_tiket WHERE id_event = $1', [id]);
     await queryDb('DELETE FROM event_konser WHERE id_event = $1', [id]);
     return NextResponse.json({ success: true });
   } catch (err) {
